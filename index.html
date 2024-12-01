@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Memory Game</title>
+    <style>
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            text-align: center;
+            font-family: Arial, sans-serif;
+        }
+
+        .game-info {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            font-size: 20px;
+        }
+
+        .button-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 10px;
+            margin: 20px auto;
+            max-width: 600px;
+        }
+
+        .game-button {
+            aspect-ratio: 1;
+            border: none;
+            border-radius: 5px;
+            background-color: #ccc;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .game-button.highlight {
+            background-color: #ffd700;
+        }
+
+        .button {
+            padding: 10px 20px;
+            font-size: 18px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 20px 5px;
+        }
+
+        .button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .button.settings {
+            background-color: #2196F3;
+        }
+
+        .button.pause {
+            background-color: #FF9800;
+        }
+
+        .button.stop {
+            background-color: #f44336;
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 5px;
+            width: 80%;
+            max-width: 500px;
+            position: relative;
+        }
+
+        .close {
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: #666;
+        }
+
+        .settings-group {
+            margin: 15px 0;
+            text-align: left;
+        }
+
+        .settings-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .settings-group input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .button.confirm {
+            background-color: #4CAF50;
+        }
+
+        .button.cancel {
+            background-color: #f44336;
+        }
+
+        .popup {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+        }
+
+        .popup-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 5px;
+            width: 300px;
+            text-align: center;
+        }
+
+        .popup h2 {
+            margin-top: 0;
+        }
+
+        .popup p {
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="game-info">
+            <div>Score: <span id="score">0</span></div>
+            <div>Time Left: <span id="timeLeft">60</span>s</div>
+        </div>
+        <button id="startButton" class="button">Start</button>
+        <button id="pauseButton" class="button pause" disabled>Pause</button>
+        <button id="stopButton" class="button stop" disabled>Stop</button>
+        <button id="settingsButton" class="button settings">Settings</button>
+        <div class="button-grid" id="buttonGrid"></div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Game Settings</h2>
+            <div class="settings-group">
+                <label for="gameTime">Time Play (s):</label>
+                <input type="number" id="gameTime" min="10" value="60">
+                
+                <label for="buttonTimeout">Button Time (ms):</label>
+                <input type="number" id="buttonTimeout" min="500" value="2000">
+                
+                <label for="pointsPerButton">Point per Button:</label>
+                <input type="number" id="pointsPerButton" min="1" value="10">
+            </div>
+            <button id="saveSettings" class="button">Save</button>
+        </div>
+    </div>
+
+    <!-- Stop Confirmation Popup -->
+    <div id="stopConfirmPopup" class="popup">
+        <div class="popup-content">
+            <h2>Stop Game</h2>
+            <p>Are you sure you want to stop the game?</p>
+            <div class="modal-buttons">
+                <button id="stopConfirmYes" class="button confirm">Yes</button>
+                <button id="stopConfirmNo" class="button cancel">No</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over Popup -->
+    <div id="gameOverPopup" class="popup">
+        <div class="popup-content">
+            <h2>Game Over!</h2>
+            <p>Your score: <span id="finalScore">0</span></p>
+            <div class="modal-buttons">
+                <button id="gameOverOk" class="button confirm">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const buttonGrid = document.getElementById('buttonGrid');
+        const startButton = document.getElementById('startButton');
+        const pauseButton = document.getElementById('pauseButton');
+        const stopButton = document.getElementById('stopButton');
+        const scoreDisplay = document.getElementById('score');
+        const timeLeftDisplay = document.getElementById('timeLeft');
+        const settingsModal = document.getElementById('settingsModal');
+        const closeButton = document.querySelector('.close');
+        const settingsButton = document.getElementById('settingsButton');
+        const saveSettingsButton = document.getElementById('saveSettings');
+        
+        // Popup elements
+        const stopConfirmPopup = document.getElementById('stopConfirmPopup');
+        const gameOverPopup = document.getElementById('gameOverPopup');
+        const finalScoreDisplay = document.getElementById('finalScore');
+        const stopConfirmYes = document.getElementById('stopConfirmYes');
+        const stopConfirmNo = document.getElementById('stopConfirmNo');
+        const gameOverOk = document.getElementById('gameOverOk');
+        
+        let score = 0;
+        let timer = 0;
+        let timerInterval;
+        let gameInterval;
+        let highlightedButtons = new Map();
+        let gameActive = false;
+        let isPaused = false;
+
+        let gameSettings = {
+            gameTime: 60,
+            buttonTimeout: 2000,
+            pointsPerButton: 10
+        };
+
+        // Create 30 buttons
+        for (let i = 0; i < 30; i++) {
+            const button = document.createElement('button');
+            button.className = 'game-button';
+            button.dataset.index = i;
+            button.addEventListener('click', handleButtonClick);
+            buttonGrid.appendChild(button);
+        }
+
+        function handleButtonClick(event) {
+            if (!gameActive || isPaused) return;
+            
+            const button = event.target;
+            const index = button.dataset.index;
+            
+            if (highlightedButtons.has(index)) {
+                score += gameSettings.pointsPerButton;
+                scoreDisplay.textContent = score;
+                button.classList.remove('highlight');
+                clearTimeout(highlightedButtons.get(index));
+                highlightedButtons.delete(index);
+                
+                if (highlightedButtons.size === 0) {
+                    highlightNewButtons();
+                }
+            }
+        }
+
+        function clearButton(button, index) {
+            button.classList.remove('highlight');
+            highlightedButtons.delete(index);
+            
+            if (gameActive && !isPaused && highlightedButtons.size === 0) {
+                highlightNewButtons();
+            }
+        }
+
+        function highlightNewButtons() {
+            highlightedButtons.forEach((timeout, index) => {
+                clearTimeout(timeout);
+                const button = document.querySelector(`[data-index="${index}"]`);
+                button.classList.remove('highlight');
+            });
+            highlightedButtons.clear();
+            
+            const numButtons = Math.random() < 0.5 ? 3 : 4;
+            const buttons = document.querySelectorAll('.game-button');
+            
+            while (highlightedButtons.size < numButtons) {
+                const randomIndex = Math.floor(Math.random() * 30).toString();
+                if (!highlightedButtons.has(randomIndex)) {
+                    const button = buttons[randomIndex];
+                    button.classList.add('highlight');
+                    
+                    const timeout = setTimeout(() => {
+                        clearButton(button, randomIndex);
+                    }, gameSettings.buttonTimeout);
+                    
+                    highlightedButtons.set(randomIndex, timeout);
+                }
+            }
+        }
+
+        function startGame() {
+            if (!gameActive) {
+                score = 0;
+                timer = 0;
+                scoreDisplay.textContent = score;
+                timeLeftDisplay.textContent = gameSettings.gameTime;
+            }
+            
+            gameActive = true;
+            isPaused = false;
+            startButton.disabled = true;
+            pauseButton.disabled = false;
+            stopButton.disabled = false;
+            settingsButton.disabled = true;
+            pauseButton.textContent = "Pause";
+            
+            highlightNewButtons();
+            
+            timerInterval = setInterval(() => {
+                if (!isPaused) {
+                    timer++;
+                    timeLeftDisplay.textContent = gameSettings.gameTime - timer;
+                    
+                    if (timer >= gameSettings.gameTime) {
+                        endGame();
+                    }
+                }
+            }, 1000);
+        }
+
+        function pauseGame() {
+            if (gameActive) {
+                if (isPaused) {
+                    // Resume game
+                    isPaused = false;
+                    pauseButton.textContent = "Pause";
+                    highlightNewButtons();
+                } else {
+                    // Pause game
+                    isPaused = true;
+                    pauseButton.textContent = "Resume";
+                    // Clear all highlights
+                    highlightedButtons.forEach((timeout, index) => {
+                        clearTimeout(timeout);
+                        const button = document.querySelector(`[data-index="${index}"]`);
+                        button.classList.remove('highlight');
+                    });
+                    highlightedButtons.clear();
+                }
+            }
+        }
+
+        function stopGame() {
+            if (gameActive) {
+                stopConfirmPopup.style.display = 'block';
+            }
+        }
+
+        function confirmStop() {
+            stopConfirmPopup.style.display = 'none';
+            endGame();
+        }
+
+        function endGame() {
+            gameActive = false;
+            clearInterval(timerInterval);
+            startButton.disabled = false;
+            pauseButton.disabled = true;
+            stopButton.disabled = true;
+            settingsButton.disabled = false;
+            timeLeftDisplay.textContent = gameSettings.gameTime;
+            
+            highlightedButtons.forEach((timeout, index) => {
+                clearTimeout(timeout);
+                const button = document.querySelector(`[data-index="${index}"]`);
+                button.classList.remove('highlight');
+            });
+            highlightedButtons.clear();
+
+            finalScoreDisplay.textContent = score;
+            gameOverPopup.style.display = 'block';
+        }
+
+        function closeGameOverPopup() {
+            gameOverPopup.style.display = 'none';
+        }
+
+        function openSettingsModal() {
+            settingsModal.style.display = 'block';
+            document.getElementById('gameTime').value = gameSettings.gameTime;
+            document.getElementById('buttonTimeout').value = gameSettings.buttonTimeout;
+            document.getElementById('pointsPerButton').value = gameSettings.pointsPerButton;
+        }
+
+        function closeSettingsModal() {
+            settingsModal.style.display = 'none';
+        }
+
+        function saveSettings() {
+            gameSettings.gameTime = parseInt(document.getElementById('gameTime').value);
+            gameSettings.buttonTimeout = parseInt(document.getElementById('buttonTimeout').value);
+            gameSettings.pointsPerButton = parseInt(document.getElementById('pointsPerButton').value);
+            timeLeftDisplay.textContent = gameSettings.gameTime;
+            closeSettingsModal();
+        }
+
+        // Event listeners
+        startButton.addEventListener('click', startGame);
+        pauseButton.addEventListener('click', pauseGame);
+        stopButton.addEventListener('click', stopGame);
+        settingsButton.addEventListener('click', openSettingsModal);
+        closeButton.addEventListener('click', closeSettingsModal);
+        saveSettingsButton.addEventListener('click', saveSettings);
+        stopConfirmYes.addEventListener('click', confirmStop);
+        stopConfirmNo.addEventListener('click', () => stopConfirmPopup.style.display = 'none');
+        gameOverOk.addEventListener('click', closeGameOverPopup);
+
+        // Close modals when clicking outside
+        window.addEventListener('click', (event) => {
+            if (event.target === settingsModal) {
+                closeSettingsModal();
+            } else if (event.target === stopConfirmPopup) {
+                stopConfirmPopup.style.display = 'none';
+            } else if (event.target === gameOverPopup) {
+                closeGameOverPopup();
+            }
+        });
+    </script>
+</body>
+</html>
